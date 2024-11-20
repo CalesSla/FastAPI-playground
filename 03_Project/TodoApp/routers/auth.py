@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path, HTTPException
 from pydantic import BaseModel
 from models import Users
 from passlib.context import CryptContext
@@ -7,9 +7,14 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 from starlette import status
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import jwt
+from datetime import timedelta, datetime, timezone
 
 
 router = APIRouter()
+
+SECRET_KEY = "0037557f6bf17f49e4ccaf74a5fab674210e5d5fb5f425c4fd7456d8f4f520a3"
+ALGORITHM = "HS256"
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -38,6 +43,11 @@ def authenticate_user(username: str, password: str, db):
         return False
     return True
 
+def create_access_token(username: str, user_id: int, expires_delta: timedelta):
+    encode = {"sub": username, "id": user_id}
+    expires = datetime.now(timezone.utc) + expires_delta
+    encode.update({"exp": expires})
+    return jwt.encode(encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 @router.post("/auth", status_code=status.HTTP_201_CREATED)
@@ -58,7 +68,13 @@ async def create_user(db: db_dependency, create_user_request: CreateUserRequest)
 
 @router.post("/token")
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: db_dependency):
-    user = authenticate_user(form_data.username, form_data.password, db)
-    if not user:
-        return "Failed Authentication"
-    return "Successful Authentication"
+    return "token"
+
+
+@router.delete("/auth/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(db: db_dependency,user_id: int = Path(gt=0)):
+    user_model = db.query(Users).filter(Users.id == user_id).first()
+    if user_model is None:
+        raise HTTPException(status_code=404, detail="User not found.")
+    db.query(Users).filter(Users.id == user_id).delete()
+    db.commit()
