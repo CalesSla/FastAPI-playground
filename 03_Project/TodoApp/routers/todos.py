@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Path
-from database import SessionLocal
+from ..database import SessionLocal
 from typing import Annotated
 from sqlalchemy.orm import Session
-from models import Todos
+from ..models import Todos
 from starlette import status
 from pydantic import BaseModel, Field
 from .auth import get_current_user
@@ -62,7 +62,7 @@ async def update_todo(user: user_dependency, db: db_dependency, todo_request: To
 
     todo_model = db.query(Todos).filter(Todos.id == todo_id).filter(Todos.owner_id == user.get("id")).first()
     if todo_model is None:
-        raise HTTPException(status_code=404, detail="Todo not found.")
+        raise HTTPException(status_code=404, detail="Todo not found")
     
     todo_model.title = todo_request.title
     todo_model.description = todo_request.description
